@@ -1,6 +1,7 @@
 package com.yoyo.spot.openapi.client.impl;
 
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.JSONPObject;
@@ -13,6 +14,9 @@ import com.yoyo.spot.openapi.client.model.BookEntity;
 import com.yoyo.spot.openapi.client.model.OrderBook;
 import com.yoyo.spot.openapi.client.model.OrderInfo;
 import com.yoyo.spot.openapi.client.service.YoYoApiService;
+import com.yoyo.spot.openapi.client.utils.HttpsUrlValidator;
+import com.yoyo.spot.openapi.client.utils.SignUtils;
+import okhttp3.*;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
@@ -20,17 +24,25 @@ import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.*;
 import java.io.IOException;
 import java.io.StringReader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.net.URLEncoder;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Security;
+import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
+import static com.yoyo.spot.openapi.client.constant.SpotConstants.*;
 import static com.yoyo.spot.openapi.client.impl.SpotApiServiceGenerator.executeSync;
 
 /**
@@ -43,14 +55,63 @@ public class SpotApiRestClientImpl implements YoSpotApiRestClient {
 
     private final YoYoApiService apiService;
 
-    public SpotApiRestClientImpl(String host, String apiKey, String secret) {
-        PrivateKey privateKey = null;
+    private String apiKey;
+    private String apiSec;
+
+    private static final OkHttpClient client = getUnsafeOkHttpClient();
+
+    public static OkHttpClient getUnsafeOkHttpClient() {
         try {
-            privateKey = getPrivateKey(secret);
+            // Create a trust manager that does not validate certificate chains
+            final TrustManager[] trustAllCerts = new TrustManager[] {
+                    new X509TrustManager() {
+                        @Override
+                        public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                        }
+
+                        @Override
+                        public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                        }
+
+                        @Override
+                        public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                            return new java.security.cert.X509Certificate[]{};
+                        }
+                    }
+            };
+
+            // Install the all-trusting trust manager
+            final SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+            // Create an ssl socket factory with our all-trusting manager
+            final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+
+            OkHttpClient.Builder builder = new OkHttpClient.Builder();
+            builder.sslSocketFactory(sslSocketFactory);
+            builder.hostnameVerifier(new HostnameVerifier() {
+                @Override
+                public boolean verify(String hostname, SSLSession session) {
+                    return true;
+                }
+            });
+
+            OkHttpClient okHttpClient = builder.build();
+            return okHttpClient;
         } catch (Exception e) {
-            logger.error("init spotopenapi error", e);
+            throw new RuntimeException(e);
         }
-        apiService = SpotApiServiceGenerator.createService(YoYoApiService.class, host, apiKey, privateKey);
+    }
+
+    public SpotApiRestClientImpl(String host, String apiKey, String secret) {
+//        PrivateKey privateKey = null;
+//        try {
+//            privateKey = getPrivateKey(secret);
+//        } catch (Exception e) {
+//            logger.error("init spotopenapi error", e);
+//        }
+        this.apiKey = apiKey;
+        this.apiSec = secret;
+        apiService = SpotApiServiceGenerator.createService(YoYoApiService.class, host, apiKey, secret);
     }
 
     public static PrivateKey getPrivateKey(String privateKeyPem) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
@@ -70,14 +131,65 @@ public class SpotApiRestClientImpl implements YoSpotApiRestClient {
 
     @Override
     public Long placeOrder(String symbol, OrderSide orderSide, BigDecimal price, BigDecimal quantity) {
-        Long result = executeSync(apiService.placeOrder("SPOT", price.toPlainString(), quantity.toPlainString(), orderSide.getType(), symbol, "GTC", "LIMIT"));
-        return result;
+
+        String timestamp = System.currentTimeMillis() + "";//时间戳毫秒数
+        FormBody formBody = new FormBody.Builder()
+                .add("direction", orderSide.getType())
+                .add("order_type", "LIMIT")
+                .add("price", price.setScale(4,RoundingMode.DOWN).toPlainString())
+                .add("quantity", quantity.setScale(4, RoundingMode.DOWN).toPlainString())
+                .add("symbol", symbol)
+                .build();
+
+        String params = "direction="+orderSide.getType()+"&order_type=LIMIT&price="+price.setScale(4,RoundingMode.DOWN).toPlainString()+"&quantity="+quantity.setScale(4,RoundingMode.DOWN).toPlainString()+"&symbol="+symbol;
+        String apiKey = this.apiKey;//自定义66位api key
+        String path = PLACE_ORDER;
+        String content = "POST" + "|" + path + "|" + timestamp + "|" + params + "|" + apiKey;
+        String secret = this.apiSec;//私钥
+        String sign = "";
+        try {
+            sign = SignUtils.HMACSHA256(content, secret);
+        } catch (Exception e) {
+        }
+
+        Request request = new Request.Builder()
+                .url(API_BASE_URL + path).addHeader("X-API-KEY", apiKey)
+                .addHeader("X-SIGNATURE", sign)
+                .addHeader("X-TIMESTAMP", timestamp)
+                .addHeader("X-GATEWAY-URI", path)
+                .addHeader("X-Consumer-Username", "api-" + apiKey)
+                .post(formBody)
+                .build();
+        try {
+           // HttpsUrlValidator.retrieveResponseFromServer(API_BASE_URL);
+            Response response = client.newCall(request).execute();
+            String jsonString = response.body().string();
+            System.out.println("result=" + jsonString);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+       // JSONObject result = executeSync(apiService.placeOrder(price.setScale(4,RoundingMode.DOWN).toPlainString(),quantity.setScale(4,BigDecimal.ROUND_DOWN).toPlainString(),orderSide.getType(),symbol,"LIMIT"));
+        return 1l;
     }
 
     @Override
     public Long privatePlaceOrder(String symbol, OrderSide orderSide, BigDecimal price, BigDecimal quantity) {
-        Long result = executeSync(apiService.privateOrder("SPOT", price.toPlainString(), quantity.toPlainString(), orderSide.getType(), symbol));
-        return result;
+       // Long result = executeSync(apiService.privateOrder("SPOT", price.toPlainString(), quantity.toPlainString(), orderSide.getType(), symbol));
+
+        OrderSide fist = null;
+        OrderSide sec = null;
+        if (orderSide == OrderSide.BUY) {
+            fist = OrderSide.SELL;
+            sec = OrderSide.BUY;
+        } else {
+            fist = OrderSide.BUY;
+            sec = OrderSide.SELL;
+        }
+        placeOrder(symbol,fist,price,quantity);
+        placeOrder(symbol,sec,price,quantity);
+        return 0l;
     }
 
     @Override
@@ -91,13 +203,88 @@ public class SpotApiRestClientImpl implements YoSpotApiRestClient {
     }
 
     @Override
-    public Long[] cancelOrders(List<Long> orders) {
-        return executeSync(apiService.cancelBatch(orders));
+    public Long[] cancelOrders(String symbol,List<Long> orders) {
+
+        StringBuffer sb = new StringBuffer();
+
+        for(int i=0;i<orders.size();i++) {
+            sb.append(orders.get(i)).append(",");
+        }
+
+        String ids = sb.substring(0,sb.length()-1);
+
+        String timestamp = System.currentTimeMillis() + "";//时间戳毫秒数
+        FormBody formBody = new FormBody.Builder()
+                .add("order_ids", ids)
+                .add("symbol", symbol)
+                .build();
+
+        String params = "order_ids="+ids+"&symbol=" + symbol;
+        String apiKey = this.apiKey;//自定义66位api key
+        String path = CANCEL_BATCH;
+        String content = "POST" + "|" + path + "|" + timestamp + "|" + params + "|" + apiKey;
+        String secret = this.apiSec;//私钥
+        String sign = "";
+        try {
+            sign = SignUtils.HMACSHA256(content, secret);
+        } catch (Exception e) {
+        }
+
+        Request request = new Request.Builder()
+                .url(API_BASE_URL + path).addHeader("X-API-KEY", apiKey)
+                .addHeader("X-SIGNATURE", sign)
+                .addHeader("X-TIMESTAMP", timestamp)
+                .addHeader("X-GATEWAY-URI", path)
+                .addHeader("X-Consumer-Username", "api-" + apiKey)
+                .post(formBody)
+                .build();
+        try {
+           // HttpsUrlValidator.retrieveResponseFromServer(API_BASE_URL);
+            Response response = client.newCall(request).execute();
+            String jsonString = response.body().string();
+            System.out.println("result=" + jsonString);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     @Override
-    public AccountBalance[] getAllUserAssets(String symbol) {
-        return executeSync(apiService.getAccountInfo(symbol)).getDetails();
+    public AccountBalance[] getAllUserAssets(String code) {
+
+        String timestamp = System.currentTimeMillis() + "";//时间戳毫秒数
+        String apiKey = this.apiKey;//自定义66位api key
+        String path = ACCOUNT_INFO_URL;
+        String content = "GET" + "|" + path + "|" + timestamp + "|code="+code+"|" + apiKey;
+        String secret = this.apiSec;//私钥
+        String sign = "";
+        try {
+            sign = SignUtils.HMACSHA256(content, secret);
+        } catch (Exception e) {
+        }
+
+        Request request = new Request.Builder()
+                .url(API_BASE_URL + path+"code=" + code).addHeader("X-API-KEY", apiKey)
+                .addHeader("X-SIGNATURE", sign)
+                .addHeader("X-TIMESTAMP", timestamp)
+                .addHeader("X-GATEWAY-URI", path)
+                .addHeader("X-Consumer-Username", "api-" + apiKey)
+                .get()
+                .build();
+        Response response = null;
+        try {
+            // HttpsUrlValidator.retrieveResponseFromServer(API_BASE_URL);
+            response = client.newCall(request).execute();
+            String jsonString = response.body().string();
+            System.out.println("result=" + jsonString);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+
     }
 
     @Override

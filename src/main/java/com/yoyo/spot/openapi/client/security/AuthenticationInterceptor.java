@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.security.PrivateKey;
 import java.util.*;
 
+import static com.yoyo.spot.openapi.client.constant.SpotConstants.API_BASE_URL;
+
 /**
  * A request interceptor that injects the API Key Header into requests, and signs messages, whenever required.
  */
@@ -20,9 +22,9 @@ public class AuthenticationInterceptor implements Interceptor {
 
     private final String apiKey;
 
-    private final PrivateKey secret;
+    private final String secret;
 
-    public AuthenticationInterceptor(String apiKey, PrivateKey secret) {
+    public AuthenticationInterceptor(String apiKey, String secret) {
         this.apiKey = apiKey;
         this.secret = secret;
     }
@@ -38,7 +40,8 @@ public class AuthenticationInterceptor implements Interceptor {
         String method = original.method().toUpperCase();
         TreeMap<String, List<String>> paramMap = Maps.newTreeMap();
         if (method.equals("POST")) {
-            FormBody body = (FormBody) original.body();
+            FormBody body = (FormBody)original.body();
+
             if (body != null) {
                 int size = body.size();
                 for (int i = 0; i < size; i++) {
@@ -55,18 +58,20 @@ public class AuthenticationInterceptor implements Interceptor {
             }
         }
 
-        long timeStamp = System.currentTimeMillis();
+        String timeStamp = System.currentTimeMillis()+"";
         String sign = "";
         try {
-            sign = SignUtils.sign(paramMap, path, timeStamp, this.apiKey, this.secret);
+            sign = SignUtils.sign(paramMap, path, timeStamp, this.apiKey, this.secret,method);
         } catch (Exception e) {
             logger.error("yoyoapi sign error", e);
         }
 
         Request.Builder builder = original.newBuilder()
-                .addHeader("api-id", apiKey)
-                .addHeader("api-timestamp", String.valueOf(timeStamp))
-                .addHeader("api-sign", sign);
+                .addHeader("X-API-KEY", apiKey)
+                .addHeader("X-SIGNATURE", sign)
+                .addHeader("X-TIMESTAMP", timeStamp)
+                .addHeader("X-GATEWAY-URI", path)
+                .addHeader("X-Consumer-Username", "api-" + apiKey);
 
         return chain.proceed(builder.build());
     }

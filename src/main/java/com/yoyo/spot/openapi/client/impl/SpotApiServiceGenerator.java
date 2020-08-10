@@ -20,13 +20,13 @@ import java.lang.annotation.Annotation;
 import java.security.PrivateKey;
 import java.util.concurrent.TimeUnit;
 
+import static com.yoyo.spot.openapi.client.impl.SpotApiRestClientImpl.getUnsafeOkHttpClient;
+
 /**
  * Generates a yoyo API implementation based on @see {@link YoYoApiService}.
  */
 public class SpotApiServiceGenerator {
-    private static final OkHttpClient sharedClient = new OkHttpClient.Builder()
-            .pingInterval(20, TimeUnit.SECONDS)
-            .build();
+    private static final OkHttpClient sharedClient = getUnsafeOkHttpClient();
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -42,7 +42,7 @@ public class SpotApiServiceGenerator {
         return createService(serviceClass, null, null, null);
     }
 
-    public static <S> S createService(Class<S> serviceClass, String host, String apiKey, PrivateKey secret) {
+    public static <S> S createService(Class<S> serviceClass, String host, String apiKey, String secret) {
         Retrofit.Builder retrofitBuilder = new Retrofit.Builder()
                 .baseUrl(host)
                 .addConverterFactory(converterFactory);

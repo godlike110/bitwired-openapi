@@ -20,7 +20,7 @@ public interface YoSpotApiRestClient {
 
     void cancel(Long orderId);
 
-    Long[] cancelOrders(List<Long> orders);
+    Long[] cancelOrders(String symbol,List<Long> orders);
 
     AccountBalance[] getAllUserAssets(String symbol);
 

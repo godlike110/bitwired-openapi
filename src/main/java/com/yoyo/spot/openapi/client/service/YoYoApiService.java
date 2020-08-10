@@ -15,14 +15,12 @@ import java.util.List;
 public interface YoYoApiService {
     @FormUrlEncoded
     @POST(SpotConstants.PLACE_ORDER)
-    Call<Long> placeOrder(
-            @Field("accountType") String accountType,
+    Call<JSONObject> placeOrder(
             @Field("price") String price,
             @Field("quantity") String quantity,
-            @Field("side") String side,
+            @Field("direction") String side,
             @Field("symbol") String symbol,
-            @Field("timeInForce") String timeInForce,
-            @Field("type") String type);
+            @Field("order_type") String type);
 
     @FormUrlEncoded
     @POST(SpotConstants.SPOT_CANCELALL)

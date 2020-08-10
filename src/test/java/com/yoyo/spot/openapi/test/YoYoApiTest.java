@@ -1,6 +1,7 @@
 package com.yoyo.spot.openapi.test;
 
 import com.google.common.collect.Lists;
+import com.sun.org.apache.xml.internal.security.keys.KeyUtils;
 import com.yoyo.spot.openapi.client.YoSpotApiClientFactory;
 import com.yoyo.spot.openapi.client.YoSpotApiRestClient;
 
@@ -12,6 +13,7 @@ import com.yoyo.spot.openapi.client.model.OrderBook;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 
 public class YoYoApiTest {
 
@@ -21,33 +23,37 @@ public class YoYoApiTest {
         YoSpotApiClientFactory factory = YoSpotApiClientFactory.newInstance(SpotConstants.API_BASE_URL,SpotConstants.API_ID, SpotConstants.SECRET);
         YoSpotApiRestClient client = factory.newRestClient();
 
-        BigDecimal price = client.getLastPrice("GGC/USDT");
+//        for(int i=0;i<100;i++) {
+//            System.out.println(NormalDistribution(1,0.0003f));
+//        }\
+      //  Long b = client.placeOrder("BTCUSDT", OrderSide.BUY, new BigDecimal(11400),new BigDecimal(1.1));
 
-        OrderBook ob = client.getOrderBook("BTC/USDT",10);
 
-        Long b = client.placeOrder("BTC/USDT", OrderSide.BUY, new BigDecimal(9000),new BigDecimal(0.01));
+       // BigDecimal price = client.getLastPrice("GGC/USDT");
 
-        Long[] a = client.cancelAll("BTC/USDT");
+    //    OrderBook ob = client.getOrderBook("BTC/USDT",10);
 
-        List<Long> orders = Lists.newArrayList();
-        orders.add(434343l);
-        orders.add(1324433l);
+       // Long[] a = client.cancelAll("BTC/USDT");
 
-        Long[] c = client.cancelOrders(orders);
+//        List<Long> orders = Lists.newArrayList();
+//        orders.add(285100891183349760l);
+//
+//        Long[] c = client.cancelOrders("BTCUSDT",orders);
+//
+//        System.out.println("hello");
 
-        System.out.println("hello");
+
+//        try {
+//            Long[] res  = client.cancelAll("BTC/USDT");
+//
+//            System.out.println(Arrays.toString(res));
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
 
 
         try {
-            Long[] res  = client.cancelAll("BTC/USDT");
-
-            System.out.println(Arrays.toString(res));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        try {
-            AccountBalance[] res = client.getAllUserAssets("");
+            AccountBalance[] res = client.getAllUserAssets("BTC");
 
             System.out.println(Arrays.toString(res));
         } catch (Exception e) {
@@ -80,5 +86,12 @@ public class YoYoApiTest {
 
 
     }
+
+
+    public static double NormalDistribution(float u,float v){
+        java.util.Random random = new java.util.Random();
+        return Math.sqrt(v)*random.nextGaussian()+u;
+    }
+
 
 }
