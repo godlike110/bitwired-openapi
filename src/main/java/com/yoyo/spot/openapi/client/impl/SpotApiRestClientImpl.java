@@ -266,7 +266,7 @@ public class SpotApiRestClientImpl implements YoSpotApiRestClient {
         }
 
         Request request = new Request.Builder()
-                .url(API_BASE_URL + path+"code=" + code).addHeader("X-API-KEY", apiKey)
+                .url(API_BASE_URL + path+"?code=" + code).addHeader("X-API-KEY", apiKey)
                 .addHeader("X-SIGNATURE", sign)
                 .addHeader("X-TIMESTAMP", timestamp)
                 .addHeader("X-GATEWAY-URI", path)
@@ -277,12 +277,20 @@ public class SpotApiRestClientImpl implements YoSpotApiRestClient {
         try {
             // HttpsUrlValidator.retrieveResponseFromServer(API_BASE_URL);
             response = client.newCall(request).execute();
-            String jsonString = response.body().string();
-            System.out.println("result=" + jsonString);
+            AccountBalance acc = new AccountBalance();
+            JSONObject obj = JSON.parseObject(response.body().string());
+            acc.setFreezeBalance(obj.getJSONObject("data").getBigDecimal("frozen"));
+            acc.setAssetSymbol(code);
+            acc.setTotalBalance(obj.getJSONObject("data").getBigDecimal("free").add(obj.getJSONObject("data").getBigDecimal("frozen")));
+           // String jsonString = response.body().string();
+            //System.out.println("result=" + jsonString);
+
+            return new AccountBalance[]{acc};
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         return null;
 
     }
@@ -310,12 +318,73 @@ public class SpotApiRestClientImpl implements YoSpotApiRestClient {
     @Override
     public List<OrderInfo> getOpenOrder(String symbol, int pageNo, int pageSize) {
 
-        JSONObject ja = executeSync(apiService.getOpenOrders(symbol,pageNo,pageSize));
-        return (List)ja.get("list");
+        String timestamp = System.currentTimeMillis() + "";//时间戳毫秒数
+        String apiKey = this.apiKey;//自定义66位api key
+        String path = OPEN_ORDER;
+        String params = "page_num="+pageNo+"&page_size="+pageSize+"&symbol="+symbol;
+        String content = "GET" + "|" + path + "|" + timestamp + "|"+params+"|" + apiKey;
+        String secret = this.apiSec;//私钥
+        String sign = "";
+        try {
+            sign = SignUtils.HMACSHA256(content, secret);
+        } catch (Exception e) {
+        }
+
+        Request request = new Request.Builder()
+                .url(API_BASE_URL + path+"?" + params).addHeader("X-API-KEY", apiKey)
+                .addHeader("X-SIGNATURE", sign)
+                .addHeader("X-TIMESTAMP", timestamp)
+                .addHeader("X-GATEWAY-URI", path)
+                .addHeader("X-Consumer-Username", "api-" + apiKey)
+                .get()
+                .build();
+        Response response = null;
+        try {
+            // HttpsUrlValidator.retrieveResponseFromServer(API_BASE_URL);
+            response = client.newCall(request).execute();
+            AccountBalance acc = new AccountBalance();
+            JSONObject obj = JSON.parseObject(response.body().string());
+             // String jsonString = response.body().string();
+            //System.out.println("result=" + jsonString);
+            List<OrderInfo> orderInfos = Lists.newArrayList();
+            for(int i=0;i<obj.getJSONArray("data").size();i++) {
+                OrderInfo o = new OrderInfo();
+                JSONObject item = obj.getJSONArray("data").getJSONObject(i);
+                o.setExecutedPrice(item.getString("average_price"));
+                o.setExecutedQty(item.getString("filled_quantity"));
+                o.setOrderId(item.getString("order_id"));
+                o.setOrigQty(item.getString("quantity"));
+                o.setPrice(item.getString("price"));
+                o.setSide(item.getString("order_direction"));
+                o.setSymbol(symbol);
+                orderInfos.add(o);
+            }
+
+            return orderInfos;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     @Override
     public BigDecimal getLastPrice(String symbol) {
+
+        Request request = new Request.Builder()
+                .url(API_BASE_URL + PRICE+"?symbol=" + symbol)
+                .get()
+                .build();
+        Response response = null;
+        try {
+            // HttpsUrlValidator.retrieveResponseFromServer(API_BASE_URL);
+            response = client.newCall(request).execute();
+            JSONObject jo = JSON.parseObject(response.body().string());
+            return jo.getJSONObject("data").getBigDecimal("price");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         String price = executeSync(apiService.getPrice(symbol));
 

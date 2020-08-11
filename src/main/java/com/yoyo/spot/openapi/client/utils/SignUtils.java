@@ -1,10 +1,5 @@
 package com.yoyo.spot.openapi.client.utils;
 
-import com.alibaba.fastjson.JSONObject;
-import com.google.common.collect.Maps;
-import com.sun.org.apache.xml.internal.security.keys.KeyUtils;
-import com.yoyo.spot.openapi.client.security.HmacSHA256Signer;
-import sun.security.util.KeyUtil;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;

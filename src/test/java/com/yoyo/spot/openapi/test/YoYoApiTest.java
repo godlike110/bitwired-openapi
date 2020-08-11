@@ -1,7 +1,6 @@
 package com.yoyo.spot.openapi.test;
 
 import com.google.common.collect.Lists;
-import com.sun.org.apache.xml.internal.security.keys.KeyUtils;
 import com.yoyo.spot.openapi.client.YoSpotApiClientFactory;
 import com.yoyo.spot.openapi.client.YoSpotApiRestClient;
 
@@ -9,6 +8,7 @@ import com.yoyo.spot.openapi.client.constant.SpotConstants;
 import com.yoyo.spot.openapi.client.enums.OrderSide;
 import com.yoyo.spot.openapi.client.model.AccountBalance;
 import com.yoyo.spot.openapi.client.model.OrderBook;
+import com.yoyo.spot.openapi.client.model.OrderInfo;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -29,7 +29,7 @@ public class YoYoApiTest {
       //  Long b = client.placeOrder("BTCUSDT", OrderSide.BUY, new BigDecimal(11400),new BigDecimal(1.1));
 
 
-       // BigDecimal price = client.getLastPrice("GGC/USDT");
+        BigDecimal price = client.getLastPrice("BTCUSDT");
 
     //    OrderBook ob = client.getOrderBook("BTC/USDT",10);
 
@@ -51,9 +51,17 @@ public class YoYoApiTest {
 //            e.printStackTrace();
 //        }
 
+        try {
+            List<OrderInfo> res = client.getOpenOrder("BTCUSDT",1,100);
+
+            System.out.println(res);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
 
         try {
-            AccountBalance[] res = client.getAllUserAssets("BTC");
+            AccountBalance[] res = client.getAllUserAssets("USDT");
 
             System.out.println(Arrays.toString(res));
         } catch (Exception e) {

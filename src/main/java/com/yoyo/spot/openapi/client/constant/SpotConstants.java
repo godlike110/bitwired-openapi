@@ -51,9 +51,9 @@ public class SpotConstants {
 
     public static final String MARKET_DEPTH = "/api-market/public/market/depth";
 
-    public static final String OPEN_ORDER = "/api-order/order/getOpenOrders";
+    public static final String OPEN_ORDER = "/sapi/v1/spot/open-orders";
 
-    public static final String PRICE = "/api-market/public/market/price";
+    public static final String PRICE = "/sapi/v1/market/price";
 
     public static final String PRIVATE_ORDER = "/api-private-order/order/place";
 
