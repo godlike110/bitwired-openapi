@@ -6,14 +6,14 @@ public class SpotConstants {
 
     public static final long DEFAULT_RECEIVING_WINDOW = 5_000L;
 
-    public static final String API_ID = "AAqV6N2eNwJWIH0lk28xM4tC2D2CikzF";
+    public static final String API_ID = "uo3a6u07df2R8Z4TICDaKAWv5Rfo24dL";
 
     public static PrivateKey PRIVATE_KEY = null;
 
-    public static final String SECRET = "ishwncDjoP2dPyUfRRgMfJFnqBJ5ILaP";
+    public static final String SECRET = "Kr8tsJcLjV2tOM13JMouaKRGNf7uCGnz";
 
 
-    public static final String API_BASE_URL = "https://tapi.bitflex.pro:9000";
+    public static final String API_BASE_URL = "https://api.bitwired.com";
 
     //public static final String API_BASE_URL = "http://127.0.0.1:18000";
 
